@@ -1,15 +1,43 @@
+#!/usr/bin/env python3
 import asyncio
 import discord
 from discord.ext import commands
+import typing
 
+import decorators
 
-EMOJI = {"smiley": "\U0001f603", 10: "\U0001f51f"}
+EMOJI = {
+    "smiley": "\U0001f603",
+    10: "\U0001f51f",
+    "x": "\u274c",
+    "left": "\u2b05",
+    "right": "\u27a1",
+}
 
 for x in range(10):
     EMOJI[x] = str(x) + "\u20e3"
 
 
 bot = commands.Bot(command_prefix="!")
+
+
+class Pagination:
+    register = decorators.RegisteringDecorator(params=True)
+
+    def __init__(self, ctx: commands.Context):
+        self.ctx = ctx
+
+    @register(EMOJI["x"])
+    def react_delete(self, reaction, user):
+        pass
+
+    @register(EMOJI["left"])
+    def react_prev(self, reaction, user):
+        pass
+
+    @register(EMOJI["right"])
+    def react_next(self, reaction, user):
+        pass
 
 
 @bot.add_listener
