@@ -9,42 +9,6 @@ def default_get_id(func):
     return _getattr("__module__"), _getattr("__qualname__")
 
 
-# def registering_decorator(original_decorator=lambda f: f, get_id=default_get_id):
-#     registry = {}
-
-#     def decorator(func: typing.Callable):
-#         registry[get_id(func)] = func
-#         return original_decorator(func)
-
-#     decorator.dict = registry
-#     decorator.exists = lambda func: get_id(func) in decorator
-#     return decorator
-
-
-class OldRegisteringDecorator:
-    def __init__(self, original_decorator=None, get_id=default_get_id):
-        self.original_decorator = original_decorator
-        self.get_id = get_id
-        self.registry = {}
-
-    def __call__(self, func):
-        print("Calling RDecorator\t", func)
-        ID = self.get_id(func)
-        self.registry[ID] = func
-
-        if self.original_decorator:
-            return self.original_decorator(func)
-
-        return func
-
-    def __getitem__(self, key):
-        return self.registry[self.get_id(key)]
-
-    def __contains__(self, key):
-        print("Running contains", key, "\t", self.get_id(key))
-        return self.get_id(key) in self.registry
-
-
 class DictDiffKey(collections.UserDict):
     @staticmethod
     def get_id(key):
@@ -65,7 +29,7 @@ class DictDiffKey(collections.UserDict):
 
 
 class RegisteringDecorator(DictDiffKey):
-    def __init__(self, get_id=default_get_id, params=False):
+    def __init__(self, get_id=default_get_id, params=True):
         super().__init__()
         self.get_id = get_id
         self.params = params
@@ -78,26 +42,28 @@ class RegisteringDecorator(DictDiffKey):
 
         return func  # So it's actually a null decorator
 
+    def register(self, obj, hook):
+        valid_names = set(dir(obj))
+        for key, item in self.data.items():
+            print(key, item)
+            if item[0].__name__ not in valid_names:
+                continue
+            func = getattr(obj, item[0].__name__)
+            if self.get_id(func) != key:
+                continue
+            # You want to call hook with the bound method, which is func
+            # Not item[0], which is the class function
+            hook(getattr(obj, item[0].__name__), *item[1], **item[2])
 
-class Decorator:
-    decorate = OldRegisteringDecorator()
+        """
+        for name in dir(obj):
+            func = getattr(obj, name)
+            if func in self:
+                item = self[func]
+                # You want to call hook with the bound method, which is func
+                # Not item[0], which is the class function
+                hook(func, *item[1], **item[2])
+        """
 
-    def __new__(cls):
-        print("__new__")
-        inst = super().__new__(cls)
 
-        for key in dir(inst):
-            value = getattr(inst, key)
-            print("\nChecking", key, "\t", value)
-            if cls._is_valid(value):
-                print("Valid")
-                setattr(inst, key, inst.impl_decorate(value))
-
-        return inst
-
-    @classmethod
-    def _is_valid(cls, value):  # value should be a bound method
-        return ("__func__" in dir(value)) and (value in cls.decorate)
-
-    def impl_decorate(self, func):
-        print("Implement me!")
+decorate = RegisteringDecorator()
