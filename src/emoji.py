@@ -6,16 +6,17 @@ import typing
 
 from decorators import decorate
 
-EMOJI = {
-    "smiley": "\U0001f603",
-    10: "\U0001f51f",
-    "x": "\u274c",
-    "left": "\u2b05",
-    "right": "\u27a1",
-}
+
+class Emoji:
+    smiley = "\U0001f603"
+    _10 = "\U0001f51f"
+    x = "\u274c"
+    left = "\u2b05"
+    right = "\u27a1"
+
 
 for x in range(10):
-    EMOJI[x] = str(x) + "\u20e3"
+    setattr(Emoji, f"_{x}", f"{x}\u20e3")
 
 
 @dataclass
@@ -81,17 +82,14 @@ class RespondToEmoji:
             await self.delete_all_reactions()
             return
 
-        emojis = [reaction.emoji for reaction in self.message.reactions]
+        # emojis = [reaction.emoji for reaction in self.message.reactions]
+        reactions = {reaction.emoji: reaction for reaction in self.message.reactions}
 
         for emoji, entry in self.emoji_hooks.items():
             print("testing", emoji)
-            exists = emoji in emojis
+            exists = emoji in reactions
             if exists and not entry.active:
-                reaction = [
-                    reaction
-                    for reaction in self.message.reactions
-                    if reaction.emoji == emoji
-                ][0]
+                reaction = reactions[emoji]
                 print("delete")
                 await self.delete_reaction_all_users(reaction)
             if not exists and entry.active:

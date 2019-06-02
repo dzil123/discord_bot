@@ -3,9 +3,10 @@ import asyncio
 import contextlib
 import discord
 from discord.ext import commands
+import logging
 
 from decorators import decorate
-from emoji import EMOJI, RespondToEmoji
+from emoji import Emoji, RespondToEmoji
 from util import random_string
 
 bot = commands.Bot(command_prefix="!")
@@ -21,30 +22,30 @@ class Counter(RespondToEmoji):
         self.embed.description = str(self.num)
         await self.message.edit(embed=self.embed)
 
-        self.emoji_hooks[EMOJI["smiley"]].active = self.num >= 12
+        self.emoji_hooks[Emoji.smiley].active = self.num >= 12
         await self.update_reactions()
 
-    @decorate(EMOJI["left"])
+    @decorate(Emoji.left)
     async def subtract(self, reaction, user):
         await self.delete_user_reaction(reaction, user)
         self.num -= 1
 
         await self.update()
 
-    @decorate(EMOJI["smiley"], active=False)
+    @decorate(Emoji.smiley, active=False)
     async def smile(self, reaction, user):
         self.num = min(11, self.num)
 
         await self.update()
 
-    @decorate(EMOJI["right"])
+    @decorate(Emoji.right)
     async def add(self, reaction, user):
         await self.delete_user_reaction(reaction, user)
         self.num += 1
 
         await self.update()
 
-    @decorate(EMOJI["x"])
+    @decorate(Emoji.x)
     async def exit(self, reaction, user):
         async with self.ctx.typing():
             print("x pressed")
@@ -144,6 +145,7 @@ async def embed(ctx):
 
 
 def main(token):
+    logging.basicConfig(level=logging.INFO)
     bot.run(token)
     # Pagination(None)
 

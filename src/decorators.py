@@ -46,7 +46,7 @@ class MethodMarker(DictDiffKey):
         methods = []
 
         for key, item in self.data.items():
-            func = getattr(obj, item[0].__name__)
+            func = getattr(obj, item[0].__name__)  # todo, use types.methodtype
             if self.get_id(func) != key:
                 continue
             methods.append((func, item[1], item[2]))

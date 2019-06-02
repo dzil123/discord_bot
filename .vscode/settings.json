@@ -14,7 +14,8 @@
     "python.linting.mypyEnabled": true,
     "python.linting.flake8Enabled": true,
     "python.linting.flake8Args": [
-        "--max-line-length=88"
+        "--max-line-length=88",
+        "--ignore=E501" // line length [managed by black]
     ],
     "python.analysis.typeshedPaths": [
         "src"
