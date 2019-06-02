@@ -6,13 +6,13 @@ from discord.ext import commands
 import logging
 
 from decorators import decorate
-from emoji import Emoji, RespondToEmoji
+from emoji import Emoji, MessageStack
 from util import random_string
 
 bot = commands.Bot(command_prefix="!")
 
 
-class Counter(RespondToEmoji):
+class Counter(MessageStack):
     def __init__(self, ctx: commands.Context):
         self.num = 10
         embed = discord.Embed(title="Counter", description=str(self.num))
@@ -20,10 +20,11 @@ class Counter(RespondToEmoji):
 
     async def update(self):
         self.embed.description = str(self.num)
-        await self.message.edit(embed=self.embed)
+        # await self.message.edit(embed=self.embed)
 
         self.emoji_hooks[Emoji.smiley].active = self.num >= 12
-        await self.update_reactions()
+        # await self.update_reactions()
+        await self.ctx.send(embed=self.embed)
 
     @decorate(Emoji.left)
     async def subtract(self, reaction, user):
@@ -47,12 +48,16 @@ class Counter(RespondToEmoji):
 
     @decorate(Emoji.x)
     async def exit(self, reaction, user):
-        async with self.ctx.typing():
-            print("x pressed")
-            await self.delete_all_reactions()
-            await self.update_reactions()
+        # async with self.ctx.typing():
+        #     print("x pressed")
+        #     await self.delete_all_reactions()
+        #     await self.update_reactions()
 
         return True
+
+    @decorate(Emoji.rewind)
+    async def rewind(self, reaction, user):
+        await self.pop_message()
 
 
 BOT_BOT_BOT_SERVER: discord.Guild = None

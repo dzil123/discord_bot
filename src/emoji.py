@@ -1,4 +1,5 @@
 import asyncio
+import collections
 from dataclasses import dataclass
 import discord
 from discord.ext import commands
@@ -13,6 +14,7 @@ class Emoji:
     x = "\u274c"
     left = "\u2b05"
     right = "\u27a1"
+    rewind = "\u23ea"
 
 
 for x in range(10):
@@ -53,6 +55,8 @@ class RespondToEmoji:
 
             self.emoji_hooks[emoji] = ReactionEntry(func, active)
 
+        self.message: discord.Message = None
+
     def event_check(self, reaction, user):
         return all(
             (
@@ -82,7 +86,6 @@ class RespondToEmoji:
             await self.delete_all_reactions()
             return
 
-        # emojis = [reaction.emoji for reaction in self.message.reactions]
         reactions = {reaction.emoji: reaction for reaction in self.message.reactions}
 
         for emoji, entry in self.emoji_hooks.items():
@@ -142,3 +145,36 @@ class RespondToEmoji:
     async def create(cls, ctx: commands.Context, embed: discord.Embed, *args, **kargs):
         inst = cls(ctx, embed, *args, **kargs)
         await inst.mainloop()
+
+
+class MessageStack(RespondToEmoji):
+    def __init__(self, ctx: commands.Context, *args, **kargs):
+        self.message_stack: typing.Sequence[discord.Message] = collections.deque()
+        ctx._send = ctx.send
+        ctx.send = self.push_message
+        self.message: discord.Message
+        super().__init__(ctx, *args, **kargs)
+
+    async def push_message(self, *args, **kargs):
+        print("    push:\n        old:", self.message)
+        if self.message:
+            await self.delete_all_reactions()
+            self.message_stack.append(self.message)
+        self.message = await self.ctx._send(*args, **kargs)
+        await self.create_initial_reactions()
+        print("        new:", self.message)
+
+        return self.message
+
+    async def pop_message(self):
+        print("    pop:\n        old:", self.message)
+        await self.message.delete()
+        try:
+            self.message = self.message_stack.pop()
+        except IndexError:
+            print("        whoops")
+            self.message = await self.ctx._send(content="Whoops!")
+        print("        new:", self.message)
+        await self.create_initial_reactions()
+
+        return self.message
