@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 import asyncio
+import contextlib
 import discord
 from discord.ext import commands
-import random
-import string
 
 from decorators import decorate
 from emoji import EMOJI, RespondToEmoji
+from util import random_string
 
 bot = commands.Bot(command_prefix="!")
 
@@ -51,27 +51,22 @@ class Counter(RespondToEmoji):
             await self.delete_all_reactions()
             await self.update_reactions()
 
-
-BOT_BOT_BOT_SERVER = None
-BOT_CATEGORY = None
+        return True
 
 
-charset = string.ascii_uppercase + string.digits
+BOT_BOT_BOT_SERVER: discord.Guild = None
+BOT_CATEGORY: discord.CategoryChannel = None
 
 
-async def send_in_new_channel(ctx):
-    channel = None
+@contextlib.asynccontextmanager
+async def send_in_new_channel(author: discord.Member):
+    channel: discord.TextChannel = None
     try:
-        name = (
-            ctx.author.display_name
-            + " "
-            + "".join(random.choice(charset) for _ in range(8))
-        )
-        overwrite = discord.PermissionOverwrite(read_messages=True)
+        name = author.display_name + " " + random_string(8)
         channel = await BOT_CATEGORY.create_text_channel(name=name)
-        await channel.set_permissions(ctx.author, overwrite=overwrite)
-        await channel.send("Hello, boy")
-        await asyncio.sleep(300)
+        await channel.set_permissions(author, read_messages=True)
+
+        yield channel
     finally:
         try:
             await channel.delete()
@@ -81,8 +76,22 @@ async def send_in_new_channel(ctx):
 
 @bot.command()
 async def go(ctx):
-    async with ctx.typing():
-        await send_in_new_channel(ctx)
+    async with send_in_new_channel(ctx.author) as channel:
+        await channel.send("Greetings " + ctx.author.mention + "!")
+
+        num = 5
+        msg: discord.Message = await channel.send(
+            content=f"Game will begin in {num}..."
+        )
+        for x in range(num, -1, -1):
+            await asyncio.sleep(1)
+            await msg.edit(content=f"Game will begin in {x}...")
+
+        ctx.send = channel.send
+        counter = Counter(ctx)
+        await counter.mainloop()
+        await ctx.send("Thank you for playing!")
+        await asyncio.sleep(5)
 
 
 @bot.add_listener
