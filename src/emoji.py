@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass
 import discord
 from discord.ext import commands
@@ -23,6 +24,9 @@ class ReactionEntry:
     active: bool
 
 
+defaultReactionEntry = ReactionEntry(lambda: None, False)
+
+
 class RespondToEmoji:
     def __init__(
         self,
@@ -31,13 +35,16 @@ class RespondToEmoji:
         restrict_to_user=True,
         timeout=30,
     ):
-        self.ctx = ctx
-        self.embed = embed
-        if restrict_to_user == True:
+        if restrict_to_user is True:
             restrict_to_user = ctx.author
-        self.restrict_to_user = restrict_to_user
-        self.emoji_hooks = {}
-        self.timeout = timeout
+
+        self.ctx: commands.Context = ctx
+        self.embed: discord.Embed = embed
+        self.restrict_to_user: typing.Union[bool, discord.Member] = restrict_to_user
+        self.timeout: typing.Optional[int] = timeout
+
+        self.emoji_hooks: typing.Mapping[str, ReactionEntry] = {}
+
         for emoji_entry in decorate.resolve(self):
             emoji = emoji_entry[1][0]
             func = emoji_entry[0]
@@ -49,8 +56,8 @@ class RespondToEmoji:
         return all(
             (
                 reaction.message.id == self.message.id,
-                reaction.emoji in self.emoji_hooks
-                and self.emoji_hooks[reaction.emoji].active,
+                reaction.emoji in self.emoji_hooks,
+                self.emoji_hooks.get(reaction.emoji, defaultReactionEntry).active,
                 user.id != self.ctx.bot.user.id,
                 (not self.restrict_to_user or user.id == self.restrict_to_user.id),
             )
@@ -59,21 +66,25 @@ class RespondToEmoji:
     async def update_message(self):
         self.message = await self.message.channel.fetch_message(self.message.id)
 
+    # Manipulating reactions
+
     async def create_initial_reactions(self):
         for emoji, entry in self.emoji_hooks.items():
             if entry.active:
                 await self.message.add_reaction(emoji)
 
     async def update_reactions(self):
+        print("update reactions")
         await self.update_message()
 
-        if len(self.message.reactions) == 0:
+        if len(self.emoji_hooks) == 0:
             await self.delete_all_reactions()
             return
 
         emojis = [reaction.emoji for reaction in self.message.reactions]
 
         for emoji, entry in self.emoji_hooks.items():
+            print("testing", emoji)
             exists = emoji in emojis
             if exists and not entry.active:
                 reaction = [
@@ -81,8 +92,10 @@ class RespondToEmoji:
                     for reaction in self.message.reactions
                     if reaction.emoji == emoji
                 ][0]
+                print("delete")
                 await self.delete_reaction_all_users(reaction)
             if not exists and entry.active:
+                print("add")
                 await self.message.add_reaction(emoji)
 
     async def delete_user_reaction(self, reaction, user):
@@ -93,7 +106,10 @@ class RespondToEmoji:
             await reaction.remove(user)
 
     async def delete_all_reactions(self):
+        print("clear reactions")
         await self.message.clear_reactions()
+
+    # Event loop processing
 
     async def wait_for_reaction(self):
         return await self.ctx.bot.wait_for(
@@ -118,11 +134,10 @@ class RespondToEmoji:
             await self.message.edit(content=None, embed=self.embed)
 
         # loop
-        while await self.do_iteration():
+        while not await self.do_iteration():  # exit if return True
             pass
 
         # cleanup
-
         await self.message.clear_reactions()
 
     @classmethod
