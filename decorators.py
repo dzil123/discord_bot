@@ -28,7 +28,7 @@ class DictDiffKey(collections.UserDict):
         return self.get_id(key) in self.data
 
 
-class RegisteringDecorator(DictDiffKey):
+class MethodMarker(DictDiffKey):
     def __init__(self, get_id=default_get_id, params=True):
         super().__init__()
         self.get_id = get_id
@@ -42,28 +42,16 @@ class RegisteringDecorator(DictDiffKey):
 
         return func  # So it's actually a null decorator
 
-    def register(self, obj, hook):
-        valid_names = set(dir(obj))
+    def resolve(self, obj):
+        methods = []
+
         for key, item in self.data.items():
-            print(key, item)
-            if item[0].__name__ not in valid_names:
-                continue
             func = getattr(obj, item[0].__name__)
             if self.get_id(func) != key:
                 continue
-            # You want to call hook with the bound method, which is func
-            # Not item[0], which is the class function
-            hook(getattr(obj, item[0].__name__), *item[1], **item[2])
+            methods.append((func, item[1], item[2]))
 
-        """
-        for name in dir(obj):
-            func = getattr(obj, name)
-            if func in self:
-                item = self[func]
-                # You want to call hook with the bound method, which is func
-                # Not item[0], which is the class function
-                hook(func, *item[1], **item[2])
-        """
+        return methods
 
 
-decorate = RegisteringDecorator()
+decorate = MethodMarker()
