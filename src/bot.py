@@ -7,9 +7,9 @@ import logging
 
 from decorators import decorate
 from emoji import Emoji, MessageStack
-from util import random_string
+from util import random_string, CloseableBot
 
-bot = commands.Bot(command_prefix="!")
+bot = CloseableBot(command_prefix="!")
 
 
 class Counter(MessageStack):
@@ -64,25 +64,34 @@ BOT_BOT_BOT_SERVER: discord.Guild = None
 BOT_CATEGORY: discord.CategoryChannel = None
 
 
-@contextlib.asynccontextmanager
-async def send_in_new_channel(author: discord.Member):
-    channel: discord.TextChannel = None
-    try:
-        name = author.display_name + " " + random_string(8)
-        channel = await BOT_CATEGORY.create_text_channel(name=name)
-        await channel.set_permissions(author, read_messages=True)
+class NewChannel:
+    def __init__(self, author: discord.Member, bot: CloseableBot = None):
+        self.author = author
+        self.bot = bot
+        self.name = author.display_name + " " + random_string(8)
 
-        yield channel
-    finally:
+    async def __aenter__(self):
+        if self.bot:
+            self.bot.add_close_hook(self)
+
+        self.channel = await BOT_CATEGORY.create_text_channel(name=self.name)
+        await self.channel.set_permissions(self.author, read_messages=True)
+
+        return self.channel
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        if self.bot:
+            self.bot.remove_close_hook(self)
+
         try:
-            await channel.delete()
-        except AttributeError:  # channel is None
+            await self.channel.delete()
+        except NameError:  # channel not defined
             pass
 
 
 @bot.command()
 async def go(ctx):
-    async with send_in_new_channel(ctx.author) as channel:
+    async with NewChannel(ctx.author) as channel:
         await channel.send("Greetings " + ctx.author.mention + "!")
 
         num = 5
